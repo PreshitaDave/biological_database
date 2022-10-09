@@ -1,0 +1,230 @@
+<html>
+    <head>
+        <!-- css style information for the <table> -->
+        <style>
+            table, th, td {
+                border: 1px solid black;
+                border-collapse: collapse;
+            }
+            th, td {
+                padding: 15px;
+            }         
+
+            h2 {display: block;
+                font-size: 1.5em;
+                margin-top: 0.83em;
+                margin-bottom: 0.83em;
+                margin-left: 0;
+                margin-right: 0;
+                font-weight: bold;
+            }
+        </style>
+
+        <!-- load the jQuery library -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <!--Load the google charts library-->
+        <script src="https://www.gstatic.com/charts/loader.js"></script>
+    </head>
+
+    <body>
+        <h1>
+        Welcome to the miRNA database!
+        </h1>
+        <p>
+        This page allows you to query against the miRNA database and the genes they target. They are two utilities: <br>
+        (1) The first button allows you to view the histogram of the target scores between genes and an miRNA of your choice from the database. <br>
+        (2) The second button allows you to search for an RNA sequence that you have entered.<br>
+        </p>
+        
+        <h2>
+            Target Scores Histogram
+        </h2>
+        
+        <!-- input box for gene name -->
+        Enter an miRNA name: <input type="text" id="miRNA_name"> Examples include: hsa-miR-2113, hsa-miR-16
+        <br>
+        <button id='button1'>Target scores histogram</button><br><br>  
+        <!-- div to hold the table returned by AJAX -->
+        <div id="scores_hist"></div>
+        
+
+        <h2>
+            miRNA Sequence Search
+        </h2>
+        
+
+        <!-- input for RNA search sequence-->
+        Enter RNA search sequence of 3-8 characters: <input type="text" id = "RNA_seq"> Allowed characters include: ACGU (lower and upper case)
+        <br>
+        <button id='button2'> Find miRNAs </button><br><br>  
+        <!-- div to hold the table returned by AJAX -->
+        <div id = "miRNA_table"></div>
+
+        <!-- begin javascript script -->
+
+        <!-- Check if mRNA is entered, if not, send an alert-->
+        <script>
+
+            //start after the document is loaded
+            $(document).ready(function(){
+                //event is button click
+                $("#button1").click(function(){
+                    let miRNA_name=$("#miRNA_name").val();
+                    
+                    if (miRNA_name == "") {
+                        alert("You did not enter the miRNA name!");
+                    }
+                    
+                    //>>>>>>>>>>>>>>> AJAX .get() request here <<<<<<<<<<<<<<<<<<//
+                    //note input_data consists of name:value pairs
+                    //in this case miRNA:value of the input box labeled "miRNA_name"          
+                    //the anonymous callback function in the .get calls create_table with the data returned by the AJAX call 
+                    //the return type of the data is specified as json (must match in cgi program)
+                    
+                    $.get("https://bioed.bu.edu/cgi-bin/students_22/preshita/preshita_AJAX.py", //<<< url
+                          {miRNA_name:miRNA_name},                                        //<<< input_data
+                          function(data){                                               //<<< callback function
+                            create_hist(data);
+                          },
+                          "json"                                                        //<<< return_data_type
+                    );
+                    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+                    
+                });
+                
+                //event is button click
+                $("#button2").click(function(){
+                    let RNA_seq=$("#RNA_seq").val();
+
+                    if (RNA_seq == "") {
+                        alert("Missing an RNA sequence to be searched!");
+                        return false;
+                    }
+                    
+                    var re = /[^ACGUacgu]/;
+                    if (re.test(RNA_seq))
+                    {
+                        alert("You did not enter a valid RNA sequence for search!");
+                        return false;
+                    }
+
+                    if (!(RNA_seq.length>=3 && RNA_seq.length<=8)){
+                        alert("You did not enter a valid RNA sequence length for search!");
+                        return false;
+                    }
+
+                    
+                    //>>>>>>>>>>>>>>> AJAX .get() request here <<<<<<<<<<<<<<<<<<//
+                    //note input_data consists of name:value pairs
+                    //in this case RNA_seq:value of the input box labeled "RNA_seq"          
+                    //the anonymous callback function in the .get calls create_table with the data returned by the AJAX call 
+                    //the return type of the data is specified as json (must match in cgi program)
+                    
+                    $.get("https://bioed.bu.edu/cgi-bin/students_22/preshita/preshita_AJAX.py", //<<< url
+                          {RNA_seq:RNA_seq},                                        //<<< input_data
+                          function(data){                                               //<<< callback function
+                            create_table(data);
+                          },
+                          "json"                                                        //<<< return_data_type
+                    );
+                    //>>>>>>>>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<<<<<<<<<<<<<<<<<<<<<//
+
+                });
+
+            });
+
+    
+        function create_hist(data){
+                //clear out the contents of the scores_hist div
+                $("#scores_hist").empty();
+                //miRNA name to insert in table column header 
+                let miRNA_for_scores=$("#miRNA_name").val();
+                 
+                if(data.length===1){
+                    $("#scores_hist").append(`<p> There was no data for the miRNA name ${miRNA_for_scores}! </p>`)
+
+                }
+                else{
+            // creating the google chart 
+            google.charts.load('current', {'packages':['corechart']});
+            google.charts.setOnLoadCallback(function(){
+						drawChart(data);  //passing chart_data to this function
+				});
+                }
+            }
+
+            function drawChart(data){
+                let miRNA_for_scores=$("#miRNA_name").val();
+                // Create the data table and store it in variable "data_table".
+                var data_table = google.visualization.arrayToDataTable(data);
+
+                // Set chart options
+                // These are used for things like title, size of the chart on the webpage
+                var options = { 'title':`Histogram of gene targeting scores for ${miRNA_for_scores}`,
+                                'legend': { position: 'none'},
+                                'vAxis':{
+                                title: 'Number of targets',
+                                titleTextStyle: {
+                                            color: '#FF0000'
+                                        }
+                                },
+                                'hAxis':{
+                                title: 'Target scores',
+                                titleTextStyle: {
+                                            color: '#FF0000'
+                                        }
+                                },
+                               'width':700,
+                               'height':400};
+
+                // Create the chart
+                // Note that the parameter is the place to put the chart on the webpage, in this case, a <div> element with id="chart-div"
+                // This <div> has to be defined in the html
+                var chart = new google.visualization.Histogram(document.getElementById('scores_hist'));
+                
+                // Draw the chart with the data and options previously defined
+                chart.draw(data_table, options);
+                }
+        
+        
+        function create_table(data){
+                //gene name to insert in table column header 
+                let RNA_seq = $("#RNA_seq").val()
+                
+                //initiate table body and sequence name
+                let table_body_contents = "";
+
+            
+                //clear out the contents of the miRNA_table div
+                $("#miRNA_table").empty();
+
+                
+                //if data is returned from the AJAX call, build a new table
+                if (data!=""){
+                    $("#miRNA_table").append(`<div class="table">Table of miRNA sequences matching ${RNA_seq}</div>`)
+                    //loop through rows of the data
+                    for (let row=0; row<data.length; row++) {
+                        
+                        //miRNA name is the first element of each row
+                        let miRNA_name = data[row][0];
+                        let sequence = data[row][1];
+                        //construct the table data rows
+                        //for string substitution with ${variable name}, use back ticks, not single or double quotes
+                        table_body_contents += `<tr><td> ${miRNA_name}</td> <td>${sequence}</td></tr>`;
+                    }
+                    
+                    //build the entire table template and susbstitute in the table data rows and the gene name 
+                    let table_template = `<table><thead><tr><th>miRNA</th><th> Sequence </th></tr></thead><tbody>${table_body_contents}</tbody></table>`;
+                    
+                    //put the final table in the miRNA_table div
+                    $("#miRNA_table").append(table_template);
+                }
+                else{
+                    $("#miRNA_table").append(`<p> There were no miRNAs matching your sequence ${RNA_seq}! </p>`)
+                }
+        }
+        
+        </script>
+    </body>
+</html>
+
